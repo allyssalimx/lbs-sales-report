@@ -66,14 +66,15 @@ def send_report(day, cs, gh):
 
 
 def next_try(now):
-    h = now.hour
+    h, today = now.hour, now.date()
+    tomorrow = today + timedelta(days=1)
     if h < 15:
-        return "3pm today"
+        return f"3pm today ({pretty(today)})"
     if h < 18:
-        return "6pm today"
+        return f"6pm today ({pretty(today)})"
     if h < 21:
-        return "9pm today"
-    return "3pm tomorrow"
+        return f"9pm today ({pretty(today)})"
+    return f"3pm tomorrow ({pretty(tomorrow)})"
 
 
 def main():
@@ -84,7 +85,8 @@ def main():
         day = datetime.strptime(os.environ["REPORT_DATE"], "%Y-%m-%d").date()
         cs, gh = fetch("CS", day), fetch("GH", day)
         if not cs and not gh:
-            tg_message(f"Sales report for {pretty(day)}: no data on the portal.")
+            tg_message(f"Sales report for {pretty(day)} isn't in on the portal yet. "
+                       f"Next automatic try: {next_try(now)}.")
         else:
             send_report(day, cs, gh)
         return
