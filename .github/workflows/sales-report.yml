@@ -1,0 +1,30 @@
+name: Daily store sales report
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      report_date:
+        description: "Optional date to send (YYYY-MM-DD). Leave blank for 2 days ago."
+        required: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          pip install requests playwright
+          python -m playwright install --with-deps chromium
+      - name: Send report
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+          REPORT_DATE: ${{ github.event.inputs.report_date }}
+        run: python report.py
