@@ -41,7 +41,7 @@ td{{padding:5px 4px;border-bottom:1px solid #eef0f3;white-space:nowrap}}
 .nm{{width:230px}} .bar{{width:auto}} .bar div{{height:12px;border-radius:3px;min-width:2px}}
 .amt{{text-align:right;width:90px;font-variant-numeric:tabular-nums;font-weight:600}}
 </style></head><body>
-<div class=top><div><h1>Store Sales Report · {html.escape(data['date'])}</h1>
+<div class=top><div><h1>{html.escape(data.get('title', 'Store Sales Report'))} · {html.escape(data['date'])}</h1>
 <div class=sub>Vendor {html.escape(data['vendor'])} · Cold Storage B2B Portal, Store to Product · amounts in SGD</div></div>
 <div class=grand><small>Cold Storage + Giant</small><b>${grand:,.2f}</b></div></div>
 <div class=cols>{panel('Cold Storage', '#2f6fd1', data['CS'])}{panel('Giant', '#d9822b', data['GH'])}</div>
