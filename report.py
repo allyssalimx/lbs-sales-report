@@ -30,10 +30,14 @@ def pretty(d):
     return f"{d.day} {d.strftime('%b %Y')}"
 
 
+def portal_iso(d):
+    # The portal keys a day's sales to that date at 16:00Z, e.g. 3 Nov -> 2026-11-03T16:00:00.000Z.
+    # This matches exactly what the portal's own screen shows for that date.
+    return f"{d.isoformat()}T16:00:00.000Z"
+
+
 def fetch(banner, day):
-    # Portal expects the UTC instant of local (SGT) midnight, e.g. 4 Nov -> 2026-11-03T16:00:00.000Z
-    iso = (datetime(day.year, day.month, day.day, tzinfo=SGT).astimezone(timezone.utc)
-           .strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+    iso = portal_iso(day)
     url = (f"{API}?vendormastercode={VENDOR}++++++++++++++++&bannercode={banner}"
            f"&dateFrom={iso}&dateTo={iso}&userid={USERID}")
     err = None
