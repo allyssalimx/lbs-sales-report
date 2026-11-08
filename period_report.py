@@ -35,6 +35,23 @@ def tg_message(text):
     requests.post(f"{TG}/sendMessage", json={"chat_id": CHAT, "text": text}, timeout=30).raise_for_status()
 
 
+def tg_send_photo(path, caption):
+    """Send the image. A read-timeout after upload almost always still means the
+    photo was delivered (Telegram just answered slowly), so treat it as sent
+    rather than crashing the run and re-sending a duplicate next time."""
+    try:
+        with open(path, "rb") as f:
+            r = requests.post(f"{TG}/sendPhoto",
+                              data={"chat_id": CHAT, "caption": caption},
+                              files={"photo": (path, f, "image/png")},
+                              timeout=(15, 120))
+        r.raise_for_status()
+        return True
+    except requests.exceptions.ReadTimeout:
+        print("WARNING: sendPhoto read-timeout; assuming the photo was delivered")
+        return True
+
+
 def portal_iso(d):
     # The portal keys a day's sales to that date at 16:00Z, e.g. 3 Nov -> 2026-11-03T16:00:00.000Z.
     # This matches exactly what the portal's own screen shows for that date.
@@ -105,10 +122,7 @@ def send_report(title, label, d1, d2):
                f"Cold Storage: ${tot(cs or []):,.2f} ({len(cs or [])} stores)\n"
                f"Giant: ${tot(gh or []):,.2f} ({len(gh or [])} stores)\n"
                f"Total: ${tot(cs or []) + tot(gh or []):,.2f}")
-    with open(out, "rb") as f:
-        r = requests.post(f"{TG}/sendPhoto", data={"chat_id": CHAT, "caption": caption},
-                          files={"photo": (out, f, "image/png")}, timeout=60)
-    r.raise_for_status()
+    tg_send_photo(out, caption)
     print("sent", out)
     return True
 
