@@ -26,6 +26,23 @@ def tg_message(text):
     requests.post(f"{TG}/sendMessage", json={"chat_id": CHAT, "text": text}, timeout=30).raise_for_status()
 
 
+def tg_send_photo(path, caption):
+    """A read-timeout after upload almost always still means the photo was
+    delivered (Telegram just answered slowly), so treat it as sent rather than
+    crashing the run and re-sending a duplicate next time."""
+    try:
+        with open(path, "rb") as f:
+            r = requests.post(f"{TG}/sendPhoto",
+                              data={"chat_id": CHAT, "caption": caption},
+                              files={"photo": (path, f, "image/png")},
+                              timeout=(15, 120))
+        r.raise_for_status()
+        return True
+    except requests.exceptions.ReadTimeout:
+        print("WARNING: sendPhoto read-timeout; assuming the photo was delivered")
+        return True
+
+
 def pretty(d):
     return f"{d.day} {d.strftime('%b %Y')}"
 
@@ -62,10 +79,7 @@ def send_report(day, cs, gh):
                f"Cold Storage: ${tot(cs):,.2f} ({len(cs)} stores)\n"
                f"Giant: ${tot(gh):,.2f} ({len(gh)} stores)\n"
                f"Total: ${tot(cs) + tot(gh):,.2f}")
-    with open(out, "rb") as f:
-        r = requests.post(f"{TG}/sendPhoto", data={"chat_id": CHAT, "caption": caption},
-                          files={"photo": (out, f, "image/png")}, timeout=60)
-    r.raise_for_status()
+    tg_send_photo(out, caption)
     print("sent", out)
 
 
