@@ -24,7 +24,10 @@ import requests
 SGT = timezone(timedelta(hours=8))
 API = "https://sphub.igo.com.sg/B2BAPI/SI/GetS2P"
 VENDOR, USERID = "6483", "10010273"
-TOKEN, CHAT = os.environ["TELEGRAM_TOKEN"], os.environ["TELEGRAM_CHAT"]
+TOKEN = os.environ["TELEGRAM_TOKEN"]
+# TELEGRAM_CHAT may hold several chat IDs separated by commas (e.g. your private
+# chat and a group), and every message/photo goes to all of them.
+CHATS = [c.strip() for c in os.environ["TELEGRAM_CHAT"].split(",") if c.strip()]
 TG = f"https://api.telegram.org/bot{TOKEN}"
 MODE = os.environ.get("MODE", "week")
 STATE = {"week": "last_sent_week.txt", "month": "last_sent_month.txt"}[MODE]
@@ -40,24 +43,25 @@ def is_final_attempt():
 
 
 def tg_message(text):
-    requests.post(f"{TG}/sendMessage", json={"chat_id": CHAT, "text": text}, timeout=30).raise_for_status()
+    for chat in CHATS:
+        requests.post(f"{TG}/sendMessage", json={"chat_id": chat, "text": text}, timeout=30).raise_for_status()
 
 
 def tg_send_photo(path, caption):
-    """Send the image. A read-timeout after upload almost always still means the
-    photo was delivered (Telegram just answered slowly), so treat it as sent
-    rather than crashing the run and re-sending a duplicate next time."""
-    try:
-        with open(path, "rb") as f:
+    """Send the image to every destination. A read-timeout after upload almost
+    always still means the photo was delivered (Telegram just answered slowly),
+    so treat it as sent rather than crashing or re-sending a duplicate."""
+    img = open(path, "rb").read()
+    for chat in CHATS:
+        try:
             r = requests.post(f"{TG}/sendPhoto",
-                              data={"chat_id": CHAT, "caption": caption},
-                              files={"photo": (path, f, "image/png")},
+                              data={"chat_id": chat, "caption": caption},
+                              files={"photo": (path, img, "image/png")},
                               timeout=(15, 120))
-        r.raise_for_status()
-        return True
-    except requests.exceptions.ReadTimeout:
-        print("WARNING: sendPhoto read-timeout; assuming the photo was delivered")
-        return True
+            r.raise_for_status()
+        except requests.exceptions.ReadTimeout:
+            print(f"WARNING: sendPhoto read-timeout to {chat}; assuming delivered")
+    return True
 
 
 def portal_iso(d):
