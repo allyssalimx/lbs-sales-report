@@ -29,6 +29,14 @@ TG = f"https://api.telegram.org/bot{TOKEN}"
 MODE = os.environ.get("MODE", "week")
 STATE = {"week": "last_sent_week.txt", "month": "last_sent_month.txt"}[MODE]
 MAX_BACKLOG = 8  # periods
+# Only the day's LAST attempt sends a "still waiting" notice, so a period that
+# isn't on the portal yet gives one message per day, not one per retry. The
+# trigger passes FINAL=true on the final run of the day; manual runs default true.
+FINAL = os.environ.get("FINAL", "true").strip().lower()
+
+
+def is_final_attempt():
+    return FINAL != "false"
 
 
 def tg_message(text):
@@ -243,13 +251,18 @@ def main():
         try:
             ready = period_ready(d2)
         except Exception as e:
-            tg_message(f"{title} for {label}: couldn't reach the portal ({e}). "
-                       f"Will try again at {next_try(now)}.")
+            if is_final_attempt():
+                tg_message(f"{title} for {label}: couldn't reach the portal ({e}).")
+            else:
+                print(f"portal error on non-final attempt, staying quiet: {e}")
             sys.exit(1)
         sent = send_report(title, label, d1, d2) if ready else False
         if not sent:
-            tg_message(f"{title} for {label} isn't fully in on the portal yet. "
-                       f"Will try again at {next_try(now)}.")
+            if is_final_attempt():
+                tg_message(f"{title} for {label} isn't fully in on the portal yet. "
+                           f"It'll be sent automatically as soon as it appears.")
+            else:
+                print(f"{label} not fully in yet; quiet until the day's final attempt")
             return
         open(STATE, "w").write(period_key(d1, d2))
 
