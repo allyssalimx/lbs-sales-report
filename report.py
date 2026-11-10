@@ -20,6 +20,14 @@ TOKEN, CHAT = os.environ["TELEGRAM_TOKEN"], os.environ["TELEGRAM_CHAT"]
 TG = f"https://api.telegram.org/bot{TOKEN}"
 STATE = "last_sent.txt"
 MAX_BACKLOG = 7  # never try more than this many days back
+# Only the day's LAST attempt sends a "still waiting" notice, so a day that
+# isn't on the portal yet produces one message, not one per retry. The trigger
+# passes FINAL=true on the final run of the day; manual runs default to true.
+FINAL = os.environ.get("FINAL", "true").strip().lower()
+
+
+def is_final_attempt():
+    return FINAL != "false"
 
 
 def tg_message(text):
@@ -103,8 +111,7 @@ def main():
         day = datetime.strptime(os.environ["REPORT_DATE"], "%Y-%m-%d").date()
         cs, gh = fetch("CS", day), fetch("GH", day)
         if not cs and not gh:
-            tg_message(f"Sales report for {pretty(day)} isn't in on the portal yet. "
-                       f"Next automatic try: {next_try(now)}.")
+            tg_message(f"Sales report for {pretty(day)} isn't in on the portal yet.")
         else:
             send_report(day, cs, gh)
         return
@@ -123,8 +130,10 @@ def main():
         try:
             cs, gh = fetch("CS", day), fetch("GH", day)
         except Exception as e:
-            tg_message(f"Sales report for {pretty(day)}: couldn't reach the portal ({e}). "
-                       f"Will try again at {next_try(now)}.")
+            if is_final_attempt():
+                tg_message(f"Sales report for {pretty(day)}: couldn't reach the portal ({e}).")
+            else:
+                print(f"portal error on non-final attempt, staying quiet: {e}")
             sys.exit(1)
 
         ready = bool(cs) and bool(gh)
@@ -132,8 +141,11 @@ def main():
             # Only one banner has data, but a later day exists: treat as final
             ready = True
         if not ready:
-            tg_message(f"Sales report for {pretty(day)} isn't in on the portal yet. "
-                       f"Will try again at {next_try(now)}.")
+            if is_final_attempt():
+                tg_message(f"Sales report for {pretty(day)} isn't in on the portal yet. "
+                           f"It'll be sent automatically as soon as it appears.")
+            else:
+                print(f"{pretty(day)} not in yet; quiet until the day's final attempt")
             return
 
         send_report(day, cs, gh)
